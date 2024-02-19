@@ -2,6 +2,8 @@ import os
 from functools import lru_cache
 from subprocess import CalledProcessError, run
 from typing import Optional, Union
+from io import BytesIO
+import subprocess
 
 import numpy as np
 import torch
@@ -21,6 +23,34 @@ N_SAMPLES_PER_TOKEN = HOP_LENGTH * 2  # the initial convolutions has stride 2
 FRAMES_PER_SECOND = exact_div(SAMPLE_RATE, HOP_LENGTH)  # 10ms per audio frame
 TOKENS_PER_SECOND = exact_div(SAMPLE_RATE, N_SAMPLES_PER_TOKEN)  # 20ms per audio token
 
+def load_audio_from_bytes(data: bytes, sr: int = 8000):
+    """
+    Open an audio file and read as mono waveform, resampling as necessary
+
+    Parameters
+    ----------
+    data: bytes
+        The bytes of target audio
+    sr: int
+        The sample rate to resample the audio if necessary
+
+    Returns
+    -------
+    A NumPy array containing the audio waveform, in float32 dtype.
+    """
+    cmd = [
+        "ffmpeg", "-nostdin", "-threads", "1", "-f", "s16le", "-ar", "8000", "-ac", "1", "-i", "pipe:0", "-ar", str(sr), "-f", "wav", "pipe:1"
+    ]
+    try:
+        process = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = process.communicate(input=data)
+    except Exception as e:
+        raise RuntimeError(f"Failed to load audio: {str(e)}") from e
+
+    if process.returncode != 0:
+        raise RuntimeError(f"ffmpeg command failed with error {process.returncode}, {err}")
+
+    return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
 
 def load_audio(file: str, sr: int = SAMPLE_RATE):
     """
