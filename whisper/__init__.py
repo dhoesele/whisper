@@ -62,33 +62,37 @@ def _download(url: str, root: str, in_memory: bool) -> Union[bytes, str]:
         if hashlib.sha256(model_bytes).hexdigest() == expected_sha256:
             return model_bytes if in_memory else download_target
         else:
+            # Still checking model hashsum.
             warnings.warn(
-                f"{download_target} exists, but the SHA256 checksum does not match; re-downloading the file"
+                f"{download_target} exists, but the SHA256 checksum does not match;"
             )
 
-    with urllib.request.urlopen(url) as source, open(download_target, "wb") as output:
-        with tqdm(
-            total=int(source.info().get("Content-Length")),
-            ncols=80,
-            unit="iB",
-            unit_scale=True,
-            unit_divisor=1024,
-        ) as loop:
-            while True:
-                buffer = source.read(8192)
-                if not buffer:
-                    break
+    # Using it for Offline Transcription, disabling download
+    raise RuntimeError('Model does not exist locally, Refusing to download')
 
-                output.write(buffer)
-                loop.update(len(buffer))
+    # with urllib.request.urlopen(url) as source, open(download_target, "wb") as output:
+    #     with tqdm(
+    #         total=int(source.info().get("Content-Length")),
+    #         ncols=80,
+    #         unit="iB",
+    #         unit_scale=True,
+    #         unit_divisor=1024,
+    #     ) as loop:
+    #         while True:
+    #             buffer = source.read(8192)
+    #             if not buffer:
+    #                 break
 
-    model_bytes = open(download_target, "rb").read()
-    if hashlib.sha256(model_bytes).hexdigest() != expected_sha256:
-        raise RuntimeError(
-            "Model has been downloaded but the SHA256 checksum does not not match. Please retry loading the model."
-        )
+    #             output.write(buffer)
+    #             loop.update(len(buffer))
 
-    return model_bytes if in_memory else download_target
+    # model_bytes = open(download_target, "rb").read()
+    # if hashlib.sha256(model_bytes).hexdigest() != expected_sha256:
+    #     raise RuntimeError(
+    #         "Model has been downloaded but the SHA256 checksum does not not match. Please retry loading the model."
+    #     )
+
+    # return model_bytes if in_memory else download_target
 
 
 def available_models() -> List[str]:
